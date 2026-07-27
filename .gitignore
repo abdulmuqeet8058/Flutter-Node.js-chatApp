@@ -1,0 +1,30 @@
+# Local configuration
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Flutter and Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+coverage/
+
+# Editors and operating systems
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Generated platform files
+flutter_chat_app/android/local.properties
+flutter_chat_app/android/key.properties
+flutter_chat_app/ios/Flutter/Generated.xcconfig
+flutter_chat_app/ios/Flutter/flutter_export_environment.sh
+flutter_chat_app/ios/Pods/
