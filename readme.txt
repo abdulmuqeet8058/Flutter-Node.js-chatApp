@@ -46,6 +46,6 @@ flutter run --dart-define=BACKEND_HOST=192.168.1.20
 
 The phone and computer must be connected to the same network.
 
-Phase 1 — complete:** authentication, presence, and direct messaging
-Phase 2 — planned:** group creation and group conversations
+Phase 1 — complete: authentication, presence, and direct messaging
+Phase 2 — planned: group creation and group conversations
 next part: group chat and push notifications
