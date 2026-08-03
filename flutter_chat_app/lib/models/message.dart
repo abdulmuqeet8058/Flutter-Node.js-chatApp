@@ -1,17 +1,19 @@
 class Message {
-  final String id;
-  final String senderId;
-  final String receiverId;
-  final String text;
-  final String createdAt;
-
   const Message({
     required this.id,
     required this.senderId,
-    required this.receiverId,
     required this.text,
     required this.createdAt,
+    this.receiverId,
+    this.groupId,
   });
+
+  final String id;
+  final String senderId;
+  final String? receiverId;
+  final String? groupId;
+  final String text;
+  final String createdAt;
 
   bool isMine(String userId) => senderId == userId;
 
@@ -23,7 +25,8 @@ class Message {
     return Message(
       id: json['id'] as String,
       senderId: json['senderId'] as String,
-      receiverId: json['receiverId'] as String,
+      receiverId: json['receiverId'] as String?,
+      groupId: json['groupId'] as String?,
       text: json['text'] as String? ?? '',
       createdAt: json['createdAt'] as String? ?? '',
     );

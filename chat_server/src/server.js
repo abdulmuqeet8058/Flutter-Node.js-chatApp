@@ -35,13 +35,23 @@ function createServer() {
   app.use('/api/chat', chatRoutes(io));
 
   app.use((error, req, res, next) => {
-    console.error(error);
-    res.status(500).json({ message: 'Something went wrong on the server.' });
+    if (!error.statusCode) {
+      console.error(error);
+    }
+    res.status(error.statusCode || 500).json({
+      message: error.statusCode
+        ? error.message
+        : 'Something went wrong on the server.',
+    });
   });
 
   io.use(authenticateSocket);
   io.on('connection', (socket) => {
-    registerSocketHandlers(io, socket);
+    registerSocketHandlers(io, socket).catch((error) => {
+      console.error('Socket setup failed:', error);
+      socket.emit('chat:error', { message: 'Could not start realtime chat.' });
+      socket.disconnect(true);
+    });
   });
 
   return { app, httpServer, io };

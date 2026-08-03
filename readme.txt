@@ -1,27 +1,37 @@
-app name : ping
+app name: Ping
 
-Ping is a small realtime chat app built with Flutter and Node.js. I made it to
-learn how an authenticated mobile client, a REST API, and a socket.io connection
-fit together in one project.
+Ping is a realtime chat app built with Flutter and Node.js. I made it to learn
+how an authenticated mobile client, a REST API, MongoDB, and Socket.IO fit
+together in one project.
 
-This repository currently represents parte 1  one-to-one
-conversations. Group chat is intentionally reserved for Phase 2.
+The project now includes two development phases:
 
-Account registration and login with JWT authentication
-Session persistence on the device
-Realtime one-to-one messages with REST fallback
-Conversation history stored in MongoDB
-Live online/offline presence
-Searchable people list
-Responsive Material 3 interface with light and dark themes
+Phase 1
+- Account registration and login with JWT authentication
+- Session persistence on the device
+- Realtime one-to-one messages with REST fallback
+- MongoDB conversation history
+- Live online/offline presence
+- Searchable people list
+
+Phase 2
+- Group creation with selected members
+- Realtime group conversations
+- Group history stored in MongoDB
+- Server-enforced group membership
+- Sender names on group messages
+- Online member counts and group member details
+- Searchable group list
+
+The Flutter client uses Provider for authentication, presence, direct
+conversations, and group state. REST endpoints load persistent data and provide
+a fallback when the socket is unavailable. Socket.IO handles live direct
+messages, group messages, group creation events, and presence updates.
 
 Project layout
-chat_server/       express.js, socket.io, JWT, and mongodb Restful api
-flutter_chat_app/  flutter client for Android and ios 
 
-
-The client uses restful api for authentication, user discovery, and message history.
-Socket.IO handles new messages and presence updates while the app is open.
+chat_server/       Express, Socket.IO, JWT, and MongoDB REST API
+flutter_chat_app/  Flutter client for Android
 
 Run locally
 
@@ -29,23 +39,22 @@ Run locally
 
 cd chat_server
 npm install
-
 npm run dev
 
-The API starts on `http://localhost:3000`.
+The API starts at http://localhost:3000.
 
 2. Start Flutter
 
 cd flutter_chat_app
 flutter pub get
 
-Android emulators automatically use "10.0.2.2" to reach the host machine.
-for a physical phone, pass the computer's LAN IP:
+Android emulators automatically use 10.0.2.2 to reach the host machine.
+For a physical phone, pass the computer's LAN IP:
 
 flutter run --dart-define=BACKEND_HOST=192.168.1.20
 
 The phone and computer must be connected to the same network.
 
-Phase 1 — complete:** authentication, presence, and direct messaging
-Phase 2 — planned:** group creation and group conversations
-next part: group chat and push notifications
+Phase 1 - complete: authentication, presence, and direct messaging
+Phase 2 - complete: group creation, membership, and group conversations
+Next: push notifications and message delivery/read states

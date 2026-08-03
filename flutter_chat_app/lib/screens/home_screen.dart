@@ -3,11 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/group.dart';
 import '../models/user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/chat_provider.dart';
 import '../widgets/avatar.dart';
+import '../widgets/group_avatar.dart';
+import 'create_group_screen.dart';
 import 'direct_chat_screen.dart';
+import 'group_chat_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,6 +24,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _searchController = TextEditingController();
   StreamSubscription<String>? _errorSubscription;
   String _query = '';
+  int _sectionIndex = 0;
 
   @override
   void initState() {
@@ -75,13 +80,19 @@ class _HomeScreenState extends State<HomeScreen> {
     await context.read<AuthProvider>().logout();
   }
 
+  void _changeSection(int index) {
+    if (_sectionIndex == index) return;
+    _searchController.clear();
+    setState(() {
+      _sectionIndex = index;
+      _query = '';
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final chat = context.watch<ChatProvider>();
-    final users = chat.users.where((user) {
-      return user.username.toLowerCase().contains(_query.toLowerCase());
-    }).toList();
     final onlineCount = chat.users
         .where((user) => chat.isOnline(user.id))
         .length;
@@ -143,12 +154,12 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: chat.loadUsers,
+        onRefresh: _sectionIndex == 0 ? chat.loadUsers : chat.loadGroups,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
               sliver: SliverToBoxAdapter(
                 child: Center(
                   child: ConstrainedBox(
@@ -166,7 +177,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           controller: _searchController,
                           onChanged: (value) => setState(() => _query = value),
                           decoration: InputDecoration(
-                            hintText: 'Search people',
+                            hintText: _sectionIndex == 0
+                                ? 'Search people'
+                                : 'Search groups',
                             prefixIcon: const Icon(Icons.search_rounded),
                             suffixIcon: _query.isEmpty
                                 ? null
@@ -181,34 +194,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                         const SizedBox(height: 24),
-                        Row(
-                          children: [
-                            Text(
-                              'People',
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(fontWeight: FontWeight.w700),
-                            ),
-                            const Spacer(),
-                            Text(
-                              '$onlineCount online',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        if (chat.loadingUsers && chat.users.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.all(48),
-                            child: Center(child: CircularProgressIndicator()),
-                          )
-                        else if (users.isEmpty)
-                          _EmptyPeople(searching: _query.isNotEmpty)
+                        if (_sectionIndex == 0)
+                          _PeopleSection(chat: chat, query: _query)
                         else
-                          for (final user in users)
-                            _PersonCard(
-                              user: user,
-                              online: chat.isOnline(user.id),
-                            ),
+                          _GroupsSection(chat: chat, query: _query),
                       ],
                     ),
                   ),
@@ -217,6 +206,31 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+      ),
+      floatingActionButton: _sectionIndex == 1
+          ? FloatingActionButton.extended(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const CreateGroupScreen()),
+              ),
+              icon: const Icon(Icons.group_add_rounded),
+              label: const Text('New group'),
+            )
+          : null,
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _sectionIndex,
+        onDestinationSelected: _changeSection,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.people_outline_rounded),
+            selectedIcon: Icon(Icons.people_rounded),
+            label: 'People',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.groups_outlined),
+            selectedIcon: Icon(Icons.groups_rounded),
+            label: 'Groups',
+          ),
+        ],
       ),
     );
   }
@@ -299,6 +313,116 @@ class _WelcomeCard extends StatelessWidget {
   }
 }
 
+class _PeopleSection extends StatelessWidget {
+  const _PeopleSection({required this.chat, required this.query});
+
+  final ChatProvider chat;
+  final String query;
+
+  @override
+  Widget build(BuildContext context) {
+    final users = chat.users.where((user) {
+      return user.username.toLowerCase().contains(query.toLowerCase());
+    }).toList();
+    final onlineCount = chat.users
+        .where((user) => chat.isOnline(user.id))
+        .length;
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Text(
+              'People',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const Spacer(),
+            Text(
+              '$onlineCount online',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (chat.loadingUsers && chat.users.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(48),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (users.isEmpty)
+          _EmptyState(
+            icon: query.isEmpty
+                ? Icons.people_outline_rounded
+                : Icons.search_off_rounded,
+            title: query.isEmpty
+                ? 'No one else is here yet'
+                : 'No matching people',
+            message: query.isEmpty
+                ? 'Create another account to start your first conversation.'
+                : 'Try a different username.',
+          )
+        else
+          for (final user in users)
+            _PersonCard(user: user, online: chat.isOnline(user.id)),
+      ],
+    );
+  }
+}
+
+class _GroupsSection extends StatelessWidget {
+  const _GroupsSection({required this.chat, required this.query});
+
+  final ChatProvider chat;
+  final String query;
+
+  @override
+  Widget build(BuildContext context) {
+    final groups = chat.groups.where((group) {
+      return group.name.toLowerCase().contains(query.toLowerCase());
+    }).toList();
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Text(
+              'Your groups',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const Spacer(),
+            Text(
+              '${chat.groups.length} total',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (chat.loadingGroups && chat.groups.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(48),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (groups.isEmpty)
+          _EmptyState(
+            icon: query.isEmpty
+                ? Icons.groups_outlined
+                : Icons.search_off_rounded,
+            title: query.isEmpty ? 'No groups yet' : 'No matching groups',
+            message: query.isEmpty
+                ? 'Create a group and bring a few conversations together.'
+                : 'Try a different group name.',
+          )
+        else
+          for (final group in groups) _GroupCard(group: group, chat: chat),
+      ],
+    );
+  }
+}
+
 class _PersonCard extends StatelessWidget {
   const _PersonCard({required this.user, required this.online});
 
@@ -339,10 +463,46 @@ class _PersonCard extends StatelessWidget {
   }
 }
 
-class _EmptyPeople extends StatelessWidget {
-  const _EmptyPeople({required this.searching});
+class _GroupCard extends StatelessWidget {
+  const _GroupCard({required this.group, required this.chat});
 
-  final bool searching;
+  final Group group;
+  final ChatProvider chat;
+
+  @override
+  Widget build(BuildContext context) {
+    final online = chat.onlineMembers(group);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      clipBehavior: Clip.antiAlias,
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        leading: GroupAvatar(name: group.name),
+        title: Text(
+          group.name,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        subtitle: Text('$online online · ${group.memberIds.length} members'),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => GroupChatScreen(group: group)),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({
+    required this.icon,
+    required this.title,
+    required this.message,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
 
   @override
   Widget build(BuildContext context) {
@@ -350,23 +510,18 @@ class _EmptyPeople extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 56, horizontal: 24),
       child: Column(
         children: [
-          Icon(
-            searching ? Icons.search_off_rounded : Icons.people_outline_rounded,
-            size: 54,
-            color: Theme.of(context).colorScheme.outline,
-          ),
+          Icon(icon, size: 54, color: Theme.of(context).colorScheme.outline),
           const SizedBox(height: 14),
           Text(
-            searching ? 'No matching people' : 'No one else is here yet',
+            title,
+            textAlign: TextAlign.center,
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 6),
           Text(
-            searching
-                ? 'Try a different username.'
-                : 'Create another account to start your first conversation.',
+            message,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium,
           ),

@@ -1,13 +1,16 @@
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import '../config/app_config.dart';
+import '../models/group.dart';
 import '../models/message.dart';
 
 class SocketService {
   io.Socket? _socket;
 
   void Function(List<String> userIds)? onPresenceChanged;
-  void Function(Message message)? onMessage;
+  void Function(Message message)? onDirectMessage;
+  void Function(Message message)? onGroupMessage;
+  void Function(Group group)? onGroupCreated;
   void Function(String message)? onError;
   void Function()? onConnect;
   void Function()? onDisconnect;
@@ -37,7 +40,21 @@ class SocketService {
 
     socket.on('direct:message', (data) {
       if (data is Map) {
-        onMessage?.call(Message.fromJson(Map<String, dynamic>.from(data)));
+        onDirectMessage?.call(
+          Message.fromJson(Map<String, dynamic>.from(data)),
+        );
+      }
+    });
+
+    socket.on('group:message', (data) {
+      if (data is Map) {
+        onGroupMessage?.call(Message.fromJson(Map<String, dynamic>.from(data)));
+      }
+    });
+
+    socket.on('group:created', (data) {
+      if (data is Map) {
+        onGroupCreated?.call(Group.fromJson(Map<String, dynamic>.from(data)));
       }
     });
 
@@ -52,6 +69,10 @@ class SocketService {
 
   void sendMessage(String receiverId, String text) {
     _socket?.emit('direct:send', {'receiverId': receiverId, 'text': text});
+  }
+
+  void sendGroupMessage(String groupId, String text) {
+    _socket?.emit('group:send', {'groupId': groupId, 'text': text});
   }
 
   void disconnect() {

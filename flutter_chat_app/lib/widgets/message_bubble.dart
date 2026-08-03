@@ -4,10 +4,16 @@ import 'package:intl/intl.dart';
 import '../models/message.dart';
 
 class MessageBubble extends StatelessWidget {
-  const MessageBubble({super.key, required this.message, required this.isMine});
+  const MessageBubble({
+    super.key,
+    required this.message,
+    required this.isMine,
+    this.senderName,
+  });
 
   final Message message;
   final bool isMine;
+  final String? senderName;
 
   @override
   Widget build(BuildContext context) {
@@ -33,34 +39,56 @@ class MessageBubble extends StatelessWidget {
             bottomRight: Radius.circular(isMine ? 5 : 18),
           ),
         ),
-        child: Wrap(
-          alignment: WrapAlignment.end,
-          crossAxisAlignment: WrapCrossAlignment.end,
-          spacing: 8,
-          runSpacing: 2,
+        child: Column(
+          crossAxisAlignment: isMine
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
-            Text(
-              message.text,
-              style: TextStyle(color: foreground, fontSize: 15.5, height: 1.3),
-            ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
+            if (!isMine && senderName != null) ...[
+              Text(
+                senderName!,
+                style: TextStyle(
+                  color: colors.primary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 3),
+            ],
+            Wrap(
+              alignment: WrapAlignment.end,
+              crossAxisAlignment: WrapCrossAlignment.end,
+              spacing: 8,
+              runSpacing: 2,
               children: [
                 Text(
-                  time,
+                  message.text,
                   style: TextStyle(
-                    color: foreground.withValues(alpha: 0.68),
-                    fontSize: 10,
+                    color: foreground,
+                    fontSize: 15.5,
+                    height: 1.3,
                   ),
                 ),
-                if (isMine) ...[
-                  const SizedBox(width: 3),
-                  Icon(
-                    Icons.done_rounded,
-                    size: 14,
-                    color: foreground.withValues(alpha: 0.75),
-                  ),
-                ],
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      time,
+                      style: TextStyle(
+                        color: foreground.withValues(alpha: 0.68),
+                        fontSize: 10,
+                      ),
+                    ),
+                    if (isMine) ...[
+                      const SizedBox(width: 3),
+                      Icon(
+                        Icons.done_rounded,
+                        size: 14,
+                        color: foreground.withValues(alpha: 0.75),
+                      ),
+                    ],
+                  ],
+                ),
               ],
             ),
           ],

@@ -1,7 +1,16 @@
 const express = require('express');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const { listUsers } = require('../services/userService');
-const { getDirectConversation, saveDirectMessage } = require('../services/chatService');
+const {
+  ChatError,
+  createGroup,
+  getDirectConversation,
+  getGroupMessages,
+  getUserGroups,
+  saveDirectMessage,
+  saveGroupMessage,
+} = require('../services/chatService');
+const { announceGroup, groupRoom } = require('../sockets/groupEvents');
 const { isOnline } = require('../store/presenceStore');
 
 const asyncRoute = (handler) => (req, res, next) => {
@@ -27,22 +36,58 @@ function chatRoutes(io) {
     res.json({ messages });
   }));
 
-  router.post('/direct/:userId/messages', async (req, res) => {
+  router.post('/direct/:userId/messages', asyncRoute(async (req, res) => {
     const { text } = req.body;
-
     if (!text || !text.trim()) {
-      return res.status(400).json({ message: 'Message text is required.' });
+      throw new ChatError('Message text is required.');
     }
 
-    try {
-      const message = await saveDirectMessage(req.user.id, req.params.userId, text);
-      io.to(req.params.userId).emit('direct:message', message);
-      io.to(req.user.id).emit('direct:message', message);
-      return res.status(201).json({ message });
-    } catch (error) {
-      return res.status(400).json({ message: error.message });
+    const message = await saveDirectMessage(
+      req.user.id,
+      req.params.userId,
+      text
+    );
+
+    io.to(req.params.userId).emit('direct:message', message);
+    io.to(req.user.id).emit('direct:message', message);
+    res.status(201).json({ message });
+  }));
+
+  router.get('/groups', asyncRoute(async (req, res) => {
+    res.json({ groups: await getUserGroups(req.user.id) });
+  }));
+
+  router.post('/groups', asyncRoute(async (req, res) => {
+    const { name, memberIds = [] } = req.body;
+    const group = await createGroup(req.user.id, name || '', memberIds);
+
+    announceGroup(io, group);
+    res.status(201).json({ group });
+  }));
+
+  router.get('/groups/:groupId/messages', asyncRoute(async (req, res) => {
+    const messages = await getGroupMessages(
+      req.params.groupId,
+      req.user.id
+    );
+    res.json({ messages });
+  }));
+
+  router.post('/groups/:groupId/messages', asyncRoute(async (req, res) => {
+    const { text } = req.body;
+    if (!text || !text.trim()) {
+      throw new ChatError('Message text is required.');
     }
-  });
+
+    const message = await saveGroupMessage(
+      req.user.id,
+      req.params.groupId,
+      text
+    );
+
+    io.to(groupRoom(req.params.groupId)).emit('group:message', message);
+    res.status(201).json({ message });
+  }));
 
   return router;
 }

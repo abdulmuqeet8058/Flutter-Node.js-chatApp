@@ -1,24 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/group.dart';
 import '../models/message.dart';
-import '../models/user.dart';
 import '../providers/chat_provider.dart';
 import '../widgets/avatar.dart';
 import '../widgets/date_label.dart';
+import '../widgets/group_avatar.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/message_input.dart';
 
-class DirectChatScreen extends StatefulWidget {
-  const DirectChatScreen({super.key, required this.otherUser});
+class GroupChatScreen extends StatefulWidget {
+  const GroupChatScreen({super.key, required this.group});
 
-  final User otherUser;
+  final Group group;
 
   @override
-  State<DirectChatScreen> createState() => _DirectChatScreenState();
+  State<GroupChatScreen> createState() => _GroupChatScreenState();
 }
 
-class _DirectChatScreenState extends State<DirectChatScreen> {
+class _GroupChatScreenState extends State<GroupChatScreen> {
   final _scrollController = ScrollController();
   int _messageCount = 0;
 
@@ -26,7 +27,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ChatProvider>().loadMessages(widget.otherUser.id);
+      context.read<ChatProvider>().loadGroupMessages(widget.group.id);
     });
   }
 
@@ -54,11 +55,49 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
         current.day != previous.day;
   }
 
+  void _showMembers(ChatProvider chat) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.only(bottom: 16),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+              child: Text(
+                '${widget.group.memberIds.length} members',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+            for (final memberId in widget.group.memberIds)
+              ListTile(
+                leading: Avatar(
+                  name: chat.usernameFor(memberId),
+                  online: chat.isOnline(memberId),
+                  showPresence: true,
+                  radius: 20,
+                ),
+                title: Text(chat.usernameFor(memberId)),
+                subtitle: Text(chat.isOnline(memberId) ? 'Online' : 'Offline'),
+                trailing: memberId == widget.group.ownerId
+                    ? const Chip(label: Text('Owner'))
+                    : null,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final chat = context.watch<ChatProvider>();
-    final messages = chat.messagesWith(widget.otherUser.id);
-    final online = chat.isOnline(widget.otherUser.id);
+    final messages = chat.messagesForGroup(widget.group.id);
+    final onlineCount = chat.onlineMembers(widget.group);
 
     if (_messageCount != messages.length) {
       _messageCount = messages.length;
@@ -70,35 +109,36 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
         titleSpacing: 0,
         title: Row(
           children: [
-            Avatar(
-              name: widget.otherUser.username,
-              online: online,
-              showPresence: true,
-              radius: 19,
-            ),
+            GroupAvatar(name: widget.group.name, size: 40),
             const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.otherUser.username,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.group.name,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-                Text(
-                  online ? 'Online now' : 'Offline',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: online
-                        ? const Color(0xFF238A62)
-                        : Theme.of(context).colorScheme.outline,
+                  Text(
+                    '$onlineCount online · ${widget.group.memberIds.length} members',
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Group members',
+            onPressed: () => _showMembers(chat),
+            icon: const Icon(Icons.info_outline_rounded),
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -117,20 +157,25 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
             ),
           Expanded(
             child: messages.isEmpty
-                ? _EmptyConversation(username: widget.otherUser.username)
+                ? _EmptyGroup(groupName: widget.group.name)
                 : ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.fromLTRB(8, 12, 8, 16),
                     itemCount: messages.length,
                     itemBuilder: (context, index) {
                       final message = messages[index];
+                      final mine = message.isMine(chat.myUserId);
+
                       return Column(
                         children: [
                           if (_startsNewDay(messages, index))
                             DateLabel(date: message.sentAt),
                           MessageBubble(
                             message: message,
-                            isMine: message.isMine(chat.myUserId),
+                            isMine: mine,
+                            senderName: mine
+                                ? null
+                                : chat.usernameFor(message.senderId),
                           ),
                         ],
                       );
@@ -139,8 +184,8 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
           ),
           MessageInput(
             onSend: (text) {
-              context.read<ChatProvider>().sendMessage(
-                widget.otherUser.id,
+              context.read<ChatProvider>().sendGroupMessage(
+                widget.group.id,
                 text,
               );
             },
@@ -151,10 +196,10 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
   }
 }
 
-class _EmptyConversation extends StatelessWidget {
-  const _EmptyConversation({required this.username});
+class _EmptyGroup extends StatelessWidget {
+  const _EmptyGroup({required this.groupName});
 
-  final String username;
+  final String groupName;
 
   @override
   Widget build(BuildContext context) {
@@ -164,10 +209,10 @@ class _EmptyConversation extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Avatar(name: username, radius: 34),
+            GroupAvatar(name: groupName, size: 68),
             const SizedBox(height: 16),
             Text(
-              'Start a chat with $username',
+              'Start the $groupName conversation',
               textAlign: TextAlign.center,
               style: Theme.of(
                 context,
@@ -175,7 +220,7 @@ class _EmptyConversation extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Send a message to begin the conversation.',
+              'Messages sent here are shared with every group member.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium,
             ),

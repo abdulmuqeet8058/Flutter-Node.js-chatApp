@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
+import '../models/group.dart';
 import '../models/message.dart';
 import '../models/user.dart';
 
@@ -136,6 +137,48 @@ class ApiService {
   ) async {
     final body = await _post(
       '/api/chat/direct/$otherUserId/messages',
+      token: token,
+      body: {'text': text},
+    );
+    return Message.fromJson(body['message'] as Map<String, dynamic>);
+  }
+
+  Future<List<Group>> getGroups(String token) async {
+    final body = await _get('/api/chat/groups', token: token);
+    final list = body['groups'] as List<dynamic>? ?? const [];
+    return list
+        .map((item) => Group.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<Group> createGroup(
+    String token,
+    String name,
+    List<String> memberIds,
+  ) async {
+    final body = await _post(
+      '/api/chat/groups',
+      token: token,
+      body: {'name': name, 'memberIds': memberIds},
+    );
+    return Group.fromJson(body['group'] as Map<String, dynamic>);
+  }
+
+  Future<List<Message>> getGroupMessages(String token, String groupId) async {
+    final body = await _get('/api/chat/groups/$groupId/messages', token: token);
+    final list = body['messages'] as List<dynamic>? ?? const [];
+    return list
+        .map((item) => Message.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<Message> sendGroupMessage(
+    String token,
+    String groupId,
+    String text,
+  ) async {
+    final body = await _post(
+      '/api/chat/groups/$groupId/messages',
       token: token,
       body: {'text': text},
     );

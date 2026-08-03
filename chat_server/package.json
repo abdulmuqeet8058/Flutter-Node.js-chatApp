@@ -1,7 +1,7 @@
 {
   "name": "ping-chat-server",
   "version": "1.0.0",
-  "description": "REST and Socket.IO backend for the Ping one-to-one chat app.",
+  "description": "REST and Socket.IO backend for Ping direct and group chat.",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
